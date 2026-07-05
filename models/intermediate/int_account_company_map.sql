@@ -41,14 +41,18 @@ with
             crm_id,
             /*
               a couple of accounts reference a crm_id that never resolves, even
-              through int_company_id_map's merge history; park them under a
-              sentinel id instead of dropping them so their revenue still
-              reconciles to source (see assumptions.md)
+              through int_company_id_map's merge history. Each gets its own
+              placeholder id (not a shared sentinel) so unrelated unmapped
+              companies don't collapse into one "customer" downstream - their
+              revenue still reconciles to source instead of silently
+              disappearing (see assumptions.md)
             */
-            coalesce(canonical_company_id, 'hs_unknown')        as canonical_company_id,
+            coalesce(
+                canonical_company_id, 
+                'unmapped_' || account_id)                      as canonical_company_id,
             is_unmapped
 
         from resolved
     )
 
-select * from final
+select * from resolved
