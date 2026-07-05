@@ -1,0 +1,7 @@
+tracksuit.duckdb
+.venv
+.user.yml
+dbt.log
+dbt_internal_packages/
+target/
+logs/
