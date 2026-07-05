@@ -24,7 +24,7 @@ models:
         description: HQ country code.
       - name: merged_object_ids
         description: Semicolon-separated list of old HubSpot company ids folded
-          into this record, if any. Resolved via int_company_id_crosswalk -
+          into this record, if any. Resolved via int_company_id_map -
           nothing downstream of that model should need to parse this directly.
       - name: created_at
         description: When the company record was created in HubSpot.
