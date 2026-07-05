@@ -1,0 +1,92 @@
+version: 2
+
+models:
+  - name: stg_subskribe__accounts
+    description: Cleaned Subskribe billing accounts, one row per account.
+    columns:
+      - name: account_id
+        description: Primary key.
+        tests:
+          - unique
+          - not_null
+      - name: company_name
+        description: Billing account name. Often, but not always, matches the
+          linked HubSpot company name.
+      - name: crm_id
+        description: Reference to a HubSpot company id (current or historical -
+          resolve through int_company_id_crosswalk to get the canonical id).
+        tests:
+          - not_null
+      - name: currency
+        description: Account billing currency.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['NZD', 'USD', 'GBP', 'AUD']
+      - name: created_at
+
+  - name: stg_subskribe__invoices
+    description: Cleaned Subskribe invoices, one row per invoice, all statuses
+      included. VOIDED invoices are excluded from revenue downstream (see
+      assumptions.md), not here - this model stays a faithful copy of the
+      source.
+    columns:
+      - name: invoice_id
+        description: Primary key.
+        tests:
+          - unique
+          - not_null
+      - name: account_id
+        tests:
+          - not_null
+      - name: subscription_id
+        tests:
+          - not_null
+      - name: invoice_date
+        tests:
+          - not_null
+      - name: total
+        description: Invoice amount in the account's billing currency.
+      - name: total_nzd
+        description: Invoice amount converted to NZD. Use this for all
+          cross-currency revenue calculations.
+      - name: currency
+      - name: status
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['PAID', 'POSTED', 'VOIDED']
+
+  - name: stg_subskribe__subscriptions
+    description: Cleaned Subskribe subscriptions, one row per subscription.
+      Renewals form a chain via renewed_from_subscription_id.
+    columns:
+      - name: subscription_id
+        description: Primary key.
+        tests:
+          - unique
+          - not_null
+      - name: account_id
+        tests:
+          - not_null
+      - name: subscription_state
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['ACTIVE', 'EXPIRED', 'CANCELED']
+      - name: start_date
+        tests:
+          - not_null
+      - name: end_date
+        tests:
+          - not_null
+      - name: renewed_from_subscription_id
+        description: Self-referencing FK to the subscription this one renewed
+          from, if any.
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_subskribe__subscriptions')
+                field: subscription_id
+      - name: created_at
+      - name: updated_at
