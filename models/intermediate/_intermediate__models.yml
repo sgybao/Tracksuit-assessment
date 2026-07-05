@@ -1,0 +1,67 @@
+version: 2
+
+models:
+  - name: int_company_id_map
+    config:
+      materialized: ephemeral
+    description: Durable-key bridge for HubSpot company ids. Maps every id ever
+      used to reference a company - whether it's the current `company_id` or
+      one folded in via `merged_object_ids` - to the current, surviving
+      `canonical_company_id`. Anything that needs to resolve a HubSpot
+      reference (e.g. Subskribe's `crmid`) should join through this model
+      rather than joining on `company_id` directly.
+    columns:
+      - name: hubspot_id
+        description: An id that has been used to reference this company, old or
+          current. Unique - each id resolves to exactly one canonical company.
+        tests:
+          - unique
+          - not_null
+      - name: canonical_company_id
+        description: The current, surviving HubSpot company id.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_hubspot__companies')
+                field: company_id
+
+  - name: int_account_company_map
+    config:
+      materialized: ephemeral
+    description: Resolves every Subskribe billing account to the canonical
+      HubSpot company it belongs to, via int_company_id_map. A couple of
+      accounts reference a crm_id with no resolvable company at all - those
+      are parked under a sentinel `hs_unknown` canonical_company_id (flagged
+      via `is_unmapped`) rather than dropped, so their revenue still
+      reconciles to source instead of silently disappearing.
+    columns:
+      - name: account_id
+        description: Primary key. The Subskribe billing account id.
+        tests:
+          - unique
+          - not_null
+      - name: crm_id
+        description: The HubSpot id this account's crm_id referenced, as-is
+          from Subskribe (current, historical/merged, or unresolvable).
+        tests:
+          - not_null
+      - name: canonical_company_id
+        description: The resolved canonical HubSpot company id, or the
+          `hs_unknown` sentinel if crm_id didn't resolve to any company.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_hubspot__companies')
+                field: company_id
+              config:
+                where: "is_unmapped = false"
+      - name: is_unmapped
+        description: True if crm_id didn't resolve to any HubSpot company,
+          current or historical.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
