@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: DuckDB
+    description: Source data for the project
+    schema: raw
+    tables:
+      - name: hubspot_companies
+        description: Company records from HubSpot CRM
+      - name: subskribe_accounts
+        description: Subskribe billing account
+      - name: subskribe_subscriptions
+        description: Subskribe subscriptions per billing account
+      - name: subskribe_invoices
+        description: Subskribe invoice records
