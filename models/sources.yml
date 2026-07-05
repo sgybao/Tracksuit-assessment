@@ -1,0 +1,24 @@
+version: 2
+
+sources:
+  - name: hubspot
+    description: Raw CRM data landed from HubSpot via Fivetran.
+    schema: raw
+    tables:
+      - name: hubspot_companies
+        description: Company records from HubSpot CRM. `merged_object_ids` records
+          old company ids that have been folded into this one; Subskribe
+          accounts sometimes reference those old ids via `crmid`.
+
+  - name: subskribe
+    description: Raw billing data landed from Subskribe via Fivetran.
+    schema: raw
+    tables:
+      - name: subskribe_accounts
+        description: Billing accounts, one per Subskribe customer. Linked to
+          HubSpot via `crmid`.
+      - name: subskribe_subscriptions
+        description: Subscriptions per billing account. Renewals form a chain via
+          `renewed_from_subscription_id`.
+      - name: subskribe_invoices
+        description: Issued invoices per subscription.

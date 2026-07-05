@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: stg_hubspot__companies
+    description: Cleaned HubSpot company records, one row per company_id.
+    columns:
+      - name: company_id
+        description: Primary key. The current HubSpot company id - this is
+         the durable key that merged companies resolve to.
+        tests:
+          - unique
+          - not_null
+      - name: company_name
+        description: Company display name.
+      - name: size_grouped
+        description: Customer size segment - the dimension GRR is reported by.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['Enterprise', 'Mid-Market', 'SMB', 'Startup']
+      - name: industry
+        description: Industry classification.
+      - name: country
+        description: HQ country code.
+      - name: merged_object_ids
+        description: Semicolon-separated list of old HubSpot company ids folded
+          into this record, if any. Resolved via int_company_id_crosswalk -
+          nothing downstream of that model should need to parse this directly.
+      - name: created_at
+        description: When the company record was created in HubSpot.
