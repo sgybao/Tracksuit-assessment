@@ -55,4 +55,4 @@ with
         from resolved
     )
 
-select * from resolved
+select * from final
