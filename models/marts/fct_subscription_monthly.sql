@@ -22,7 +22,7 @@ with
             sum(total_nzd)                                      as recognised_revenue_nzd
 
         from {{ ref('stg_subskribe__invoices') }}
-        -- assumption: voided invoices don't count as revenue, so ignore them. See assumptions.md.
+        -- assumption: voided invoices don't count as revenue, so ignore them. See SUBMISSION.md.
         where status != 'VOIDED'
         group by all
 

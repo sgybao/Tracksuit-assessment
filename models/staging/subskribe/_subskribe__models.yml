@@ -28,7 +28,7 @@ models:
   - name: stg_subskribe__invoices
     description: Cleaned Subskribe invoices, one row per invoice, all statuses
       included. VOIDED invoices are excluded from revenue downstream (see
-      assumptions.md), not here - this model stays a faithful copy of the
+      SUBMISSION.md), not here - this model stays a faithful copy of the
       source.
     columns:
       - name: invoice_id

@@ -55,8 +55,7 @@ with
             -- key - no need to walk renewed_from_subscription_id for it. If
             -- an account ever starts a second, unrelated chain (e.g. churn
             -- then a brand new deal) this assumption breaks and the two
-            -- chains would incorrectly share a lineage id (see
-            -- assumptions.md).
+            -- chains would incorrectly share a lineage id (see SUBMISSION.md).
             subscriptions.account_id                            as subscription_lineage_id,
             current_flag.is_current,
             subscriptions.start_date,

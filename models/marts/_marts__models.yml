@@ -93,7 +93,7 @@ models:
                 field: canonical_company_id
       - name: subscription_lineage_id
         description: Durable key grouping every renewal term of the same
-          contract. Currently just account_id (see assumptions.md), not a
+          contract. Currently just account_id (see SUBMISSION.md), not a
           walked renewal chain.
         tests:
           - not_null
@@ -109,7 +109,7 @@ models:
                 values: [true, false]
       - name: subscription_state
         description: Source system state - not used for point-in-time
-          activity (see assumptions.md); start_date/end_date drive that instead.
+          activity (see SUBMISSION.md); start_date/end_date drive that instead.
         tests:
           - accepted_values:
               arguments:
@@ -141,7 +141,7 @@ models:
       materialized: table
     description: Conformed calendar dimension, one row per month. Spans into
       the future for active contracts - don't use as a source of "today" for
-      reporting (see assumptions.md).
+      reporting (see SUBMISSION.md).
     columns:
       - name: month_date
         description: Primary key. First-of-month date - no surrogate key needed.
@@ -197,7 +197,7 @@ models:
                 field: canonical_company_id
       - name: is_within_subscription_term
         description: True if month_date falls within start_date/end_date.
-          Derived from dates, never subscription_state (see assumptions.md).
+          Derived from dates, never subscription_state (see SUBMISSION.md).
         tests:
           - not_null
           - accepted_values:
@@ -206,7 +206,7 @@ models:
       - name: recognised_revenue_nzd
         description: Sum of non-VOIDED invoice total_nzd for this
           subscription-month. Billed revenue, not normalised/prorated MRR
-          (see assumptions.md).
+          (see SUBMISSION.md).
         tests:
           - not_null
           - dbt_utils.accepted_range:

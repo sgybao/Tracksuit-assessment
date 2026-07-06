@@ -45,7 +45,7 @@ with
               placeholder id (not a shared sentinel) so unrelated unmapped
               companies don't collapse into one "customer" downstream - their
               revenue still reconciles to source instead of silently
-              disappearing (see assumptions.md)
+              disappearing (see SUBMISSION.md)
             */
             coalesce(
                 canonical_company_id, 
