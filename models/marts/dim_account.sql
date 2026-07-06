@@ -5,8 +5,8 @@ with
         select
 
             account_id,
-            currency       as billing_currency,
-            created_at     as account_created_at
+            currency                                            as billing_currency,
+            created_at                                          as account_created_at
 
         from {{ ref('stg_subskribe__accounts') }}
 

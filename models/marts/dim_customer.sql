@@ -17,12 +17,8 @@ with
     )
 
     -- synthetic "unknown member" rows for accounts that don't resolve to any
-    -- HubSpot company at all (see int_account_company_map) - one row per
-    -- unmapped account, not a single shared placeholder, so unrelated
-    -- unmapped companies don't collapse into one "customer" downstream.
-    -- company_name comes from Subskribe's own record, since that's real and
-    -- known even though the HubSpot match isn't; the CRM-sourced attributes
-    -- genuinely aren't known so those stay 'Unknown'.
+    -- HubSpot company at all (see int_account_company_map). Filling CRM-sourced 
+    -- attributes with 'Unknown'.
     , unmapped_companies as (
 
         select
