@@ -24,28 +24,14 @@ with
 
     )
 
-    , report_months as (
-
-        select 
-            dim_month.month_date
-        from {{ ref('dim_month') }} as dim_month
-        cross join report_bounds
-        where dim_month.month_date > report_bounds.last_real_month - interval '12 months'
-        and dim_month.month_date <= report_bounds.last_real_month
-
-    )
-
-    -- customers paying (revenue > 0) 12 months before each report month -
-    -- the GRR cohort. Unmapped/unknown companies stay in - they roll up
-    -- into their own 'Unknown' segment bucket rather than being hidden, so
-    -- the report still reconciles to fct_subscription_monthly (see
-    -- assumptions.md).
+    -- Unmapped/unknown companies stay in - they roll up into their own 'Unknown' segment bucket 
+    -- rather than being filtered out, so the report still reconciles to fct_subscription_monthly
     , cohort as (
 
         select
 
             canonical_company_id,
-            (month_date + interval '12 months')::date          as month_date,
+            (month_date + interval '12 months')::date           as reporting_month,
             revenue                                             as revenue_m_minus_12
 
         from customer_month_revenue
@@ -57,16 +43,20 @@ with
 
         select
 
-            cohort.month_date,
+            cohort.reporting_month,
             cohort.canonical_company_id,
             cohort.revenue_m_minus_12,
-            least(coalesce(current_month.revenue, 0), cohort.revenue_m_minus_12)  as retained_revenue
+            least(
+                coalesce(current_month.revenue, 0),
+                cohort.revenue_m_minus_12)                       as retained_revenue
 
         from cohort
-        inner join report_months using (month_date)
+        cross join report_bounds
         left join customer_month_revenue as current_month
             on current_month.canonical_company_id = cohort.canonical_company_id
-            and current_month.month_date = cohort.month_date
+            and current_month.month_date = cohort.reporting_month
+        where cohort.reporting_month > report_bounds.last_real_month - interval '12 months'
+            and cohort.reporting_month <= report_bounds.last_real_month
 
     )
 
@@ -74,7 +64,7 @@ with
 
         select
 
-            capped.month_date,
+            capped.reporting_month,
             dim_customer.size_grouped,
             sum(capped.retained_revenue) / sum(capped.revenue_m_minus_12) * 100  as grr_pct,
             count(distinct capped.canonical_company_id)                          as cohort_customers

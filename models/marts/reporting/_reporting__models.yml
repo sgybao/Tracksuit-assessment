@@ -1,0 +1,39 @@
+version: 2
+
+models:
+  - name: rpt_grr_monthly_by_segment
+    config:
+      materialized: view
+    description: Monthly Gross Revenue Retention by customer size segment, for
+      the last 12 months anchored to the last month with real invoice
+      activity (see assumptions.md). Cohort = customers with revenue in the
+      same month 12 months prior; GRR = retained revenue over that cohort's
+      prior revenue.
+    columns:
+      - name: reporting_month
+        description: Reporting month.
+        tests:
+          - not_null
+      - name: size_grouped
+        description: Customer size segment, using each customer's current
+          segment (see assumptions.md). 'Unknown' includes unmapped accounts.
+        tests:
+          - not_null
+      - name: grr_pct
+        description: Gross Revenue Retention, as a percentage (0-100).
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+                inclusive: true
+      - name: cohort_customers
+        description: Number of distinct customers in the prior-year cohort
+          this row is computed from.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                inclusive: true
