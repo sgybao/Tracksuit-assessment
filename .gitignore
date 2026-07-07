@@ -1,6 +1,7 @@
 tracksuit.duckdb
 .venv
 .user.yml
+.DS_Store
 dbt.log
 dbt_packages/
 dbt_internal_packages/
