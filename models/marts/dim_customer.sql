@@ -16,9 +16,55 @@ with
 
     )
 
+    , accounts as (
+
+        select
+
+            account_id,
+            company_name,
+            currency                                            as billing_currency,
+            created_at                                          as account_created_at
+
+        from {{ ref('stg_subskribe__accounts') }}
+
+    )
+
+    , account_company_map as (
+
+        select
+
+            account_id,
+            canonical_company_id,
+            is_unmapped
+
+        from {{ ref('int_account_company_map') }}
+
+    )
+
+    , mapped_companies as (
+
+        select
+
+            companies.canonical_company_id,
+            companies.company_name,
+            companies.size_grouped,
+            companies.industry,
+            companies.country,
+            companies.created_at,
+            companies.is_unknown_company,
+            account_company_map.account_id,
+            accounts.billing_currency,
+            accounts.account_created_at,
+            coalesce(account_company_map.is_unmapped, false)    as is_unmapped
+
+        from companies
+        left join account_company_map using (canonical_company_id)
+        left join accounts using (account_id)
+
+    )
+
     -- synthetic "unknown member" rows for accounts that don't resolve to any
-    -- HubSpot company at all (see int_account_company_map). Filling CRM-sourced 
-    -- attributes with 'Unknown'.
+    -- HubSpot company at all (see int_account_company_map).
     , unmapped_companies as (
 
         select
@@ -29,18 +75,21 @@ with
             'Unknown'                                           as industry,
             'Unknown'                                           as country,
             cast(null as date)                                  as created_at,
-            true                                                as is_unknown_company
+            true                                                as is_unknown_company,
+            account_company_map.account_id,
+            accounts.billing_currency,
+            accounts.account_created_at,
+            account_company_map.is_unmapped
 
-        from {{ ref('int_account_company_map') }} as account_company_map
-        inner join {{ ref('stg_subskribe__accounts') }} as accounts
-            using (account_id)
+        from account_company_map
+        inner join accounts using (account_id)
         where account_company_map.is_unmapped
 
     )
 
     , unioned as (
 
-        select * from companies
+        select * from mapped_companies
         union all
         select * from unmapped_companies
 

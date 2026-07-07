@@ -7,6 +7,9 @@ models:
     description: One row per canonical HubSpot company, plus one synthetic row
       per unmapped Subskribe account (`unmapped_<account_id>`) so every
       account always resolves to a valid customer. See int_account_company_map.
+      Billing-account attributes are folded in here as company and billing account 
+      are 1:1 in this dataset today (see SUBMISSION.md); will need tosplit them out 
+      again if that ever stops holding.
     columns:
       - name: canonical_company_id
         description: Primary key. The canonical HubSpot company id, or an
@@ -27,27 +30,12 @@ models:
           - accepted_values:
               arguments:
                 values: [true, false]
-
-  - name: dim_account
-    config:
-      materialized: table
-    description: One row per Subskribe billing account, with the canonical
-      HubSpot company it belongs to.
-    columns:
       - name: account_id
-        description: Primary key. The Subskribe billing account id.
+        description: The Subskribe billing account for this company. Every
+          company has one today, but stays nullable for companies with no
+          converted account.
         tests:
           - unique
-          - not_null
-      - name: canonical_company_id
-        description: FK to dim_customer. Never null - unmapped accounts
-          resolve to their own placeholder id instead.
-        tests:
-          - not_null
-          - relationships:
-              arguments:
-                to: ref('dim_customer')
-                field: canonical_company_id
       - name: billing_currency
         tests:
           - accepted_values:
@@ -76,12 +64,12 @@ models:
           - unique
           - not_null
       - name: account_id
-        description: FK to dim_account.
+        description: FK to dim_customer.account_id.
         tests:
           - not_null
           - relationships:
               arguments:
-                to: ref('dim_account')
+                to: ref('dim_customer')
                 field: account_id
       - name: canonical_company_id
         description: FK to dim_customer, denormalised on directly.
