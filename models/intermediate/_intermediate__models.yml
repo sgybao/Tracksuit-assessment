@@ -32,9 +32,11 @@ models:
     description: Resolves every Subskribe billing account to the canonical
       HubSpot company it belongs to, via int_company_id_map. A couple of
       accounts reference a crm_id with no resolvable company at all - those
-      are parked under a sentinel `hs_unknown` canonical_company_id (flagged
-      via `is_unmapped`) rather than dropped, so their revenue still
-      reconciles to source instead of silently disappearing.
+      are parked under their own `unmapped_<account_id>` placeholder
+      canonical_company_id (flagged via `is_unmapped`) rather than dropped, so
+      their revenue still reconciles to source instead of silently
+      disappearing, and unrelated unmapped accounts don't collapse into one
+      shared placeholder company.
     columns:
       - name: account_id
         description: Primary key. The Subskribe billing account id.
@@ -47,8 +49,9 @@ models:
         tests:
           - not_null
       - name: canonical_company_id
-        description: The resolved canonical HubSpot company id, or the
-          `hs_unknown` sentinel if crm_id didn't resolve to any company.
+        description: The resolved canonical HubSpot company id, or this
+          account's own `unmapped_<account_id>` placeholder if crm_id didn't
+          resolve to any company.
         tests:
           - not_null
           - relationships:

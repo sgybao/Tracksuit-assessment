@@ -1,0 +1,212 @@
+version: 2
+
+models:
+  - name: dim_customer
+    config:
+      materialized: table
+    description: One row per canonical HubSpot company, plus one synthetic row
+      per unmapped Subskribe account (`unmapped_<account_id>`) so every
+      account always resolves to a valid customer. See int_account_company_map.
+      Billing-account attributes are folded in here as company and billing account 
+      are 1:1 in this dataset today (see SUBMISSION.md); will need tosplit them out 
+      again if that ever stops holding.
+    columns:
+      - name: canonical_company_id
+        description: Primary key. The canonical HubSpot company id, or an
+          `unmapped_<account_id>` placeholder.
+        tests:
+          - unique
+          - not_null
+      - name: size_grouped
+        description: Customer size segment, or `Unknown` for unmapped rows.
+        tests:
+          - accepted_values:
+              arguments:
+                values: [Startup, SMB, Mid-Market, Enterprise, Unknown]
+      - name: is_unknown_company
+        description: True only for the synthetic unmapped-account rows.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
+      - name: account_id
+        description: The Subskribe billing account for this company. Every
+          company has one today, but stays nullable for companies with no
+          converted account.
+        tests:
+          - unique
+      - name: billing_currency
+        tests:
+          - accepted_values:
+              arguments:
+                values: [AUD, NZD, USD, GBP]
+      - name: is_unmapped
+        description: True if this account's crm_id didn't resolve to any
+          HubSpot company (see int_account_company_map).
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
+
+  - name: dim_subscription
+    config:
+      materialized: table
+    description: Type 2 SCD over the subscription/contract relationship - one
+      row per renewal term. `subscription_lineage_id` groups terms into one
+      contract; `is_current` marks the live term. Account and company are
+      denormalised on for convenience.
+    columns:
+      - name: subscription_id
+        description: Primary key.
+        tests:
+          - unique
+          - not_null
+      - name: account_id
+        description: FK to dim_customer.account_id.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: account_id
+      - name: canonical_company_id
+        description: FK to dim_customer, denormalised on directly.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: canonical_company_id
+      - name: subscription_lineage_id
+        description: Durable key grouping every renewal term of the same
+          contract. Currently just account_id (see SUBMISSION.md), not a
+          walked renewal chain.
+        tests:
+          - not_null
+          - unique:
+              config:
+                where: "is_current = true"
+      - name: is_current
+        description: True for the still-live term in a lineage.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
+      - name: subscription_state
+        description: Source system state - not used for point-in-time
+          activity (see SUBMISSION.md); start_date/end_date drive that instead.
+        tests:
+          - accepted_values:
+              arguments:
+                values: [ACTIVE, EXPIRED, CANCELED]
+      - name: renewed_from_subscription_id
+        description: FK to dim_subscription.subscription_id (self-referencing).
+          Null for a subscription's first term.
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_subscription')
+                field: subscription_id
+      - name: is_renewal
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
+    tests:
+      - dbt_utils.mutually_exclusive_ranges:
+          arguments:
+            lower_bound_column: start_date
+            upper_bound_column: end_date
+            partition_by: account_id
+            gaps: allowed
+
+  - name: dim_month
+    config:
+      materialized: table
+    description: Conformed calendar dimension, one row per month. Spans into
+      the future for active contracts - don't use as a source of "today" for
+      reporting (see SUBMISSION.md).
+    columns:
+      - name: month_date
+        description: Primary key. First-of-month date - no surrogate key needed.
+        tests:
+          - unique
+          - not_null
+      - name: year
+        tests:
+          - not_null
+      - name: month_number
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+      - name: quarter
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4]
+
+  - name: fct_subscription_monthly
+    config:
+      materialized: table
+    description: Periodic snapshot fact - one row per subscription per month
+      it was covered or invoiced. canonical_company_id is denormalised on
+      since it's the FK most queries (including GRR) filter/group by.
+    columns:
+      - name: subscription_id
+        description: Grain key, part 1. FK to dim_subscription.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_subscription')
+                field: subscription_id
+      - name: month_date
+        description: Grain key, part 2. FK to dim_month.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_month')
+                field: month_date
+      - name: canonical_company_id
+        description: Denormalised FK to dim_customer.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: canonical_company_id
+      - name: is_within_subscription_term
+        description: True if month_date falls within start_date/end_date.
+          Derived from dates, never subscription_state (see SUBMISSION.md).
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
+      - name: recognised_revenue_nzd
+        description: Sum of non-VOIDED invoice total_nzd for this
+          subscription-month. Billed revenue, not normalised/prorated MRR
+          (see SUBMISSION.md).
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - subscription_id
+              - month_date
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "(select sum(recognised_revenue_nzd) from {{ ref('fct_subscription_monthly') }}) = (select sum(total_nzd) from {{ ref('stg_subskribe__invoices') }} where status != 'VOIDED')"

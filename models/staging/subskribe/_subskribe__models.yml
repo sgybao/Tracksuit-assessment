@@ -14,7 +14,7 @@ models:
           linked HubSpot company name.
       - name: crm_id
         description: Reference to a HubSpot company id (current or historical -
-          resolve through int_company_id_crosswalk to get the canonical id).
+          resolve through int_company_id_map to get the canonical id).
         tests:
           - not_null
       - name: currency
@@ -28,7 +28,7 @@ models:
   - name: stg_subskribe__invoices
     description: Cleaned Subskribe invoices, one row per invoice, all statuses
       included. VOIDED invoices are excluded from revenue downstream (see
-      assumptions.md), not here - this model stays a faithful copy of the
+      SUBMISSION.md), not here - this model stays a faithful copy of the
       source.
     columns:
       - name: invoice_id
